@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multiplayer Game Backend | Universal Lobby & Relay</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="logo-icon">🎮</div>
+        <div>
+          <h1>Multiplayer Game Server</h1>
+          <p class="subtitle">Generic Client-Controlled Relay &amp; Room Manager</p>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="connection-status" id="connectionStatus">
+          <span class="status-dot"></span>
+          <span class="status-text">Connecting...</span>
+        </div>
+        <div class="server-stats" id="serverStats">
+          <span id="statRooms">0 Rooms</span> • <span id="statPlayers">0 Players</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- LOBBY SCREEN (Create / Join / Browse) -->
+      <section id="lobbyScreen" class="screen-section">
+        <div class="grid-layout-3">
+          
+          <!-- CREATE ROOM CARD -->
+          <div class="card">
+            <div class="card-header">
+              <h2>✨ Create Room</h2>
+              <span class="badge badge-primary">Host</span>
+            </div>
+            <div class="card-body">
+              <div class="form-group">
+                <label for="createPlayerName">Your Player Name</label>
+                <input type="text" id="createPlayerName" placeholder="e.g. Commander Alice" value="Player 1">
+              </div>
+
+              <div class="form-group">
+                <label for="createRoomName">Lobby Name</label>
+                <input type="text" id="createRoomName" placeholder="e.g. Battle Arena #1" value="Epic Match">
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="createGameType">Game Type</label>
+                  <input type="text" id="createGameType" placeholder="e.g. shooter, rpg, board" value="arena-battle">
+                </div>
+                <div class="form-group">
+                  <label for="createMaxPlayers">Max Players</label>
+                  <input type="number" id="createMaxPlayers" min="2" max="32" value="4">
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="createCustomCode">Custom Code (Optional)</label>
+                  <input type="text" id="createCustomCode" placeholder="Auto-generated" maxlength="8">
+                </div>
+                <div class="form-group">
+                  <label for="createPassword">Password (Optional)</label>
+                  <input type="password" id="createPassword" placeholder="None">
+                </div>
+              </div>
+
+              <div class="checkbox-row">
+                <label class="custom-checkbox">
+                  <input type="checkbox" id="createIsPrivate">
+                  <span class="checkmark"></span>
+                  Private Lobby (Hidden from public list)
+                </label>
+              </div>
+
+              <div class="checkbox-row">
+                <label class="custom-checkbox">
+                  <input type="checkbox" id="createAllowSpectators" checked>
+                  <span class="checkmark"></span>
+                  Allow Spectators
+                </label>
+              </div>
+
+              <button class="btn btn-primary btn-block" id="btnCreateRoom">
+                Create &amp; Enter Lobby
+              </button>
+            </div>
+          </div>
+
+          <!-- JOIN BY CODE CARD -->
+          <div class="card">
+            <div class="card-header">
+              <h2>🔑 Join by Code</h2>
+              <span class="badge badge-info">Direct Code</span>
+            </div>
+            <div class="card-body">
+              <div class="form-group">
+                <label for="joinPlayerName">Your Player Name</label>
+                <input type="text" id="joinPlayerName" placeholder="e.g. Scout Bob" value="Player 2">
+              </div>
+
+              <div class="form-group">
+                <label for="joinRoomCode">Room Code</label>
+                <input type="text" id="joinRoomCode" class="room-code-input" placeholder="ABCDEF" maxlength="10">
+                <small class="helper-text">Enter the 6-character code shared by the host</small>
+              </div>
+
+              <div class="form-group">
+                <label for="joinPassword">Password (If private)</label>
+                <input type="password" id="joinPassword" placeholder="Leave empty if none">
+              </div>
+
+              <div class="checkbox-row">
+                <label class="custom-checkbox">
+                  <input type="checkbox" id="joinAsSpectator">
+                  <span class="checkmark"></span>
+                  Join as Spectator
+                </label>
+              </div>
+
+              <button class="btn btn-accent btn-block" id="btnJoinRoom">
+                Join Lobby
+              </button>
+
+              <div class="divider"><span>OR</span></div>
+
+              <button class="btn btn-outline btn-block" id="btnQuickJoin">
+                ⚡ Quick Match (Find Any Public Game)
+              </button>
+            </div>
+          </div>
+
+          <!-- PUBLIC ROOMS BROWSER -->
+          <div class="card">
+            <div class="card-header">
+              <h2>🌐 Public Lobbies</h2>
+              <button class="btn btn-sm btn-icon" id="btnRefreshRooms" title="Refresh">🔄</button>
+            </div>
+            <div class="card-body">
+              <div class="search-box">
+                <input type="text" id="roomSearchInput" placeholder="Filter by name or game...">
+              </div>
+
+              <div class="rooms-list-container" id="publicRoomsList">
+                <div class="empty-state">No public rooms active. Create one to get started!</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ACTIVE ROOM SCREEN (In-Lobby & In-Game) -->
+      <section id="roomScreen" class="screen-section hidden">
+        <!-- Room Banner -->
+        <div class="room-banner">
+          <div class="room-banner-info">
+            <div class="room-title-row">
+              <h2 id="roomTitle">Game Room</h2>
+              <span class="badge badge-status" id="roomStatusBadge">LOBBY</span>
+              <span class="badge badge-outline" id="roomTypeBadge">arena-battle</span>
+              <span class="badge badge-privacy" id="roomPrivacyBadge">PUBLIC</span>
+            </div>
+
+            <!-- Share Code Box -->
+            <div class="share-code-box">
+              <div class="share-label">SHARE CODE:</div>
+              <div class="share-code-display" id="displayRoomCode">------</div>
+              <button class="btn btn-sm btn-copy" id="btnCopyCode" title="Copy Room Code">
+                📋 Copy Code
+              </button>
+              <button class="btn btn-sm btn-copy" id="btnCopyLink" title="Copy Join Link">
+                🔗 Copy Invite Link
+              </button>
+            </div>
+          </div>
+
+          <div class="room-banner-actions">
+            <button class="btn btn-success" id="btnToggleReady">
+              Ready Up
+            </button>
+            <button class="btn btn-primary hidden" id="btnStartGame">
+              🚀 Start Game
+            </button>
+            <button class="btn btn-warning btn-sm" id="btnSimulateReconnect" title="Test reconnect token resilience">
+              ⚡ Test Reconnect
+            </button>
+            <button class="btn btn-danger btn-sm" id="btnLeaveRoom">
+              Leave Room
+            </button>
+          </div>
+        </div>
+
+        <!-- Room Grid -->
+        <div class="room-workspace-grid">
+          
+          <!-- LEFT COLUMN: PLAYERS LIST -->
+          <div class="card">
+            <div class="card-header">
+              <h3>👥 Players (<span id="memberCount">0</span>/<span id="maxMemberCount">4</span>)</h3>
+              <div class="header-tags" id="myRoleTag"></div>
+            </div>
+            <div class="card-body p-0">
+              <div class="players-list" id="playersList">
+                <!-- Injected via JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- MIDDLE COLUMN: CLIENT-CONTROLLED DATA RELAY & MESSAGES -->
+          <div class="card">
+            <div class="card-header">
+              <h3>📡 Client-Controlled Relay</h3>
+              <span class="badge badge-secondary">Arbitrary Payloads</span>
+            </div>
+            <div class="card-body">
+              <div class="relay-form">
+                <div class="form-row">
+                  <div class="form-group flex-2">
+                    <label for="relayEvent">Event Name</label>
+                    <input type="text" id="relayEvent" value="CHAT" placeholder="e.g. MOVE, ATTACK, CHAT">
+                  </div>
+                  <div class="form-group flex-1">
+                    <label for="relayTarget">Target</label>
+                    <select id="relayTarget">
+                      <option value="others">All Others</option>
+                      <option value="all">Everyone (Incl. Self)</option>
+                      <option value="host">Host Only</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="template-selector">
+                  <span>Templates:</span>
+                  <button type="button" class="btn-chip" data-template="chat">💬 Chat</button>
+                  <button type="button" class="btn-chip" data-template="move">📍 Position {x, y}</button>
+                  <button type="button" class="btn-chip" data-template="action">⚔️ Action {attack: 50}</button>
+                  <button type="button" class="btn-chip" data-template="custom">📦 Custom JSON</button>
+                </div>
+
+                <div class="form-group">
+                  <label for="relayPayload">Payload (JSON or Text)</label>
+                  <textarea id="relayPayload" rows="3" class="code-font">{ "text": "Hello, squad!" }</textarea>
+                </div>
+
+                <button class="btn btn-primary btn-block" id="btnSendRelay">
+                  🚀 Broadcast Relay Event
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT COLUMN: SHARED & PLAYER STATE EDITORS -->
+          <div class="card">
+            <div class="card-header">
+              <h3>🔄 Client State Store</h3>
+              <div class="state-tabs">
+                <button class="state-tab-btn active" data-tab="room-state">Room State</button>
+                <button class="state-tab-btn" data-tab="player-state">My State</button>
+              </div>
+            </div>
+            <div class="card-body">
+              <!-- Room Shared State Tab -->
+              <div id="tabRoomState" class="state-tab-content">
+                <div class="state-viewer">
+                  <label>Current Shared Room State:</label>
+                  <pre id="currentRoomStateJson" class="json-box">{}</pre>
+                </div>
+                <div class="state-patcher">
+                  <label for="roomStatePatchInput">Patch Room State (JSON):</label>
+                  <textarea id="roomStatePatchInput" rows="3" class="code-font">{ "currentTurn": "player1", "round": 1 }</textarea>
+                  <button class="btn btn-secondary btn-sm btn-block" id="btnApplyRoomState">
+                    Apply Shared State Patch
+                  </button>
+                </div>
+              </div>
+
+              <!-- My Player State Tab -->
+              <div id="tabPlayerState" class="state-tab-content hidden">
+                <div class="state-viewer">
+                  <label>My Personal Player State:</label>
+                  <pre id="currentPlayerStateJson" class="json-box">{}</pre>
+                </div>
+                <div class="state-patcher">
+                  <label for="playerStatePatchInput">Patch My State (JSON):</label>
+                  <textarea id="playerStatePatchInput" rows="3" class="code-font">{ "x": 140, "y": 280, "hp": 100, "score": 25 }</textarea>
+                  <button class="btn btn-secondary btn-sm btn-block" id="btnApplyPlayerState">
+                    Apply Player State Patch
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- FULL-WIDTH BOTTOM PANEL: REAL-TIME EVENT STREAM -->
+        <div class="card mt-4">
+          <div class="card-header">
+            <div class="header-with-badge">
+              <h3>📜 Real-Time Event &amp; Relay Stream</h3>
+              <span class="badge badge-outline" id="logCountBadge">0 events</span>
+            </div>
+            <button class="btn btn-sm btn-outline" id="btnClearLogs">Clear Log</button>
+          </div>
+          <div class="card-body p-0">
+            <div class="event-log-container" id="eventLogContainer">
+              <!-- Injected events -->
+            </div>
+          </div>
+        </div>
+
+      </section>
+    </main>
+
+    <!-- Notification Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
